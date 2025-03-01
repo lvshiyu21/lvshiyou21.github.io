@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>发送 B 站视频弹幕辅助</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #00A1D6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            width: 600px; /* 适当增加容器宽度以适应两列布局 */
+        }
+
+        h2 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* 两列布局 */
+            grid-gap: 20px; /* 列与列之间的间距 */
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #result {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .link-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .link-container a {
+            color: white;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .link-container a:hover {
+            color: blue;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>发送 B 站视频弹幕</h2>
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="SESSDATA">SESSDATA</label>
+                <input type="text" id="SESSDATA" placeholder="请输入你的 SESSDATA">
+            </div>
+            <div class="form-group">
+                <label for="bili_jct">bili_jct (CSRF Token)</label>
+                <input type="text" id="bili_jct" placeholder="请输入你的 bili_jct">
+            </div>
+            <div class="form-group">
+                <label for="bvid">视频 BV 号</label>
+                <input type="text" id="bvid" placeholder="请输入视频 BV 号">
+            </div>
+            <div class="form-group">
+                <label for="danmakuType">弹幕类型</label>
+                <select id="danmakuType">
+                    <option value="1">滚动弹幕</option>
+                    <option value="4">底部弹幕</option>
+                    <option value="5">顶部弹幕</option>
+                    <option value="2">高级弹幕</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="progress">弹幕出现时间（秒）</label>
+                <input type="number" id="progress" placeholder="请输入弹幕出现时间（秒）" value="0">
+            </div>
+            <div class="form-group">
+                <label for="count">发送弹幕个数</label>
+                <input type="number" id="count" placeholder="请输入发送弹幕个数" value="1">
+            </div>
+            <div class="form-group">
+                <label for="color">弹幕颜色（十六进制）</label>
+                <input type="text" id="color" placeholder="请输入弹幕颜色（十六进制）" value="FFFFFF">
+            </div>
+            <div class="form-group">
+                <label for="plat">平台标识</label>
+                <select id="plat">
+                    <option value="1">web 端</option>
+                    <option value="2">安卓端</option>
+                    <option value="8">视频管理页面</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="danmakuText">弹幕内容</label>
+                <input type="text" id="danmakuText" placeholder="请输入弹幕内容">
+            </div>
+        </div>
+        <button onclick="sendDanmaku()">发送弹幕</button>
+        <div id="result"></div>
+        <div class="link-container">
+            <a href="https://space.bilibili.com/3494369438993272?spm_id_from=333.1007.0.0" target="_blank">作者主页</a>
+        </div>
+    </div>
+
+    <script>
+        async function getAidAndCidByBvid(bvid) {
+            const apiUrl = `https://api.bilibili.com/x/web-interface/view?bvid=${bvid}`;
+            try {
+                const response = await fetch(apiUrl);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.code === 0) {
+                        return {
+                            aid: data.data.aid,
+                            cid: data.data.cid
+                        };
+                    } else {
+                        throw new Error(`获取视频信息失败，错误码: ${data.code}, 错误信息: ${data.message}`);
+                    }
+                } else {
+                    throw new Error('请求视频信息接口失败');
+                }
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        async function sendDanmaku() {
+            const SESSDATA = document.getElementById('SESSDATA').value;
+            const bili_jct = document.getElementById('bili_jct').value;
+            const bvid = document.getElementById('bvid').value;
+            const danmakuType = document.getElementById('danmakuType').value;
+            const progressInSeconds = document.getElementById('progress').value;
+            const count = document.getElementById('count').value;
+            const colorHex = document.getElementById('color').value;
+            const plat = document.getElementById('plat').value;
+            const danmakuText = document.getElementById('danmakuText').value;
+
+            try {
+                const { aid, cid } = await getAidAndCidByBvid(bvid);
+                const apiUrl = 'https://api.bilibili.com/x/v2/dm/post';
+                const headers = {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Cookie': `SESSDATA=${SESSDATA}; bili_jct=${bili_jct}`
+                };
+
+                // 将颜色十六进制转换为十进制
+                const color = parseInt(colorHex, 16);
+                // 将秒转换为毫秒
+                const progress = parseInt(progressInSeconds) * 1000;
+
+                for (let i = 0; i < count; i++) {
+                    const data = {
+                        type: parseInt(danmakuType),
+                        aid: parseInt(aid),
+                        cid: parseInt(cid),
+                        progress: progress,
+                        plat: parseInt(plat),
+                        data: JSON.stringify({
+                            text: danmakuText,
+                            color: color,
+                            size: 25 // 默认字体大小
+                        }),
+                        csrf: bili_jct
+                    };
+
+                    const formData = new URLSearchParams();
+                    for (const [key, value] of Object.entries(data)) {
+                        formData.append(key, value);
+                    }
+
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: headers,
+                        body: formData.toString()
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('发送弹幕请求失败');
+                    }
+                }
+
+                const resultDiv = document.getElementById('result');
+                resultDiv.textContent = `成功发送 ${count} 条弹幕`;
+            } catch (error) {
+                const resultDiv = document.getElementById('result');
+                resultDiv.textContent = '发送弹幕时出现错误：' + error.message;
+            }
+        }
+    </script>
+</body>
+
+</html>
